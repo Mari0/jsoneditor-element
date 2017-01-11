@@ -1,0 +1,237 @@
+<link rel="import" href="../polymer/polymer.html">
+<script src="../ace-builds/src-min-noconflict/ace.js"></script>
+
+<link href="../jsoneditor/dist/jsoneditor.min.css" rel="stylesheet" type="text/css">
+<script src="../jsoneditor/dist/jsoneditor.min.js"></script>
+
+<!--
+`jsoneditor-element`
+webcomponent for [jsoneditor](https://github.com/josdejong/jsoneditor) by josdejong
+
+@demo demo/index.html 
+-->
+
+<dom-module id="jsoneditor-element">
+  <template>
+    <style>
+      :host {
+        display: block;
+        min-height: 100px;
+
+      }
+    </style>
+<div id="jsonEditor"></div>
+<div id="jsonWrapper" style="display: none">
+<content></content>
+</div>
+</template>
+
+<script>
+    Polymer({
+      ready: function () {
+        this.jsonEditorOptions = {};
+
+        this._disableSearch();
+        this._disableHistory();
+        this._setModes();
+        this._setMode();
+        this._setIndentation(); //important to call this after _setMode
+        this._setEscapeUnicode();
+        this._sortObjectKeys();
+
+        //the ace editor used by jsoneditor is missing of ace.require
+        if (window.ace)
+          this.jsonEditorOptions.ace = ace;
+        this.jsonEditor = new JSONEditor(this.$.jsonEditor, this.jsonEditorOptions);
+
+        // set json
+        if (this.yText != null && (this.mode === 'code' || this.mode === 'text')) {
+          this.bindYText(this.yText);
+        }
+        else if (this.load) {
+          this._load();
+        }
+        else {
+          try {
+            var json = JSON.parse(this.$.jsonWrapper.textContent);
+            this.jsonEditor.set(json);
+          }
+          catch (e) {
+            console.log('No valid json');
+          }
+        }
+
+      },
+      is: 'jsoneditor-element',
+      properties: {
+        /**
+        * Initial field name for the root node, is undefined by default. Can also be set using JSONEditor.setName(name). 
+        * Only applicable when mode is 'tree', 'view', or 'form'.
+        */
+        name: {
+          type: String,
+          observer: '_setName'
+        },
+        /**
+        * Disable the search bar of the editor
+        */
+        disableSearch: {
+          type: Boolean,
+          value: false,
+          notify: true,
+          observer: '_disableSearch',
+        },
+        /**
+       * Disable the Undo & Redo buttons of the editor
+       */
+        disableHistory: {
+          type: Boolean,
+          value: false,
+          notify: true,
+          observer: '_disableHistory',
+        },
+        /**
+        * Set the editor mode. Available values: 'tree' (default), 'view', 'form', 'code', 'text'. In 'view' mode, the data and datastructure is read-only. 
+        * In 'form' mode, only the value can be changed, the datastructure is read-only. Mode 'code' requires the Ace editor to be loaded on the page. Mode 'text' shows the data as plain text.
+        */
+        mode: {
+          type: String,
+          value: 'tree',
+          notify: true,
+          observer: '_setMode'
+        },
+        /**
+        * Number of indentation spaces. 2 by default. Only applicable when mode is 'code' or 'text'.
+        */
+        indentation: {
+          type: Number,
+          value: 2,
+          notify: true,
+          observer: '_setIndentation'
+        },
+        /**
+        *If true, unicode characters are escaped and displayed as their hexadecimal code (like \u260E) instead of of the character itself (like ☎). False by default.
+        */
+        escapeUnicode: {
+          type: Boolean,
+          value: false,
+          notify: true,
+          observer: '_setEscapeUnicode'
+        },
+        /**
+        * If true, object keys in 'tree', 'view' or 'form' mode list be listed alphabetically instead by their insertion order. 
+        * Sorting is performed using a natural sort algorithm, which makes it easier to see objects that have string numbers as keys. False by default.
+        */
+        sortObjectKeys: {
+          type: Boolean,
+          value: false,
+          notify: true,
+          observer: '_sortObjectKeys'
+        },
+        /**
+        * Create a box in the editor menu where the user can switch between the specified modes. Available values: see option mode.
+        */
+        modes: {
+          type: Array,
+          observer: '_setModes',
+          notify: true
+        },
+        /**
+        * Load the content via Ajax request
+        */
+        load: {
+          type: String,
+          observer: '_load'
+        },
+        /**
+         *  Share the content of the Ace editor using [Yjs](https://github.com/y-js/yjs) and [y-element](https://github.com/y-js/y-element). E.g.
+         *
+         * ```
+<y-element
+  connector-name="websockets-client"
+  connector-room="ace-testing"
+  db-name="memory">
+  <y-type
+    name="text"
+    type="Text"
+    data="{{yText}}"></y-type>
+</y-element>
+<ace-element y-text="{{yText}}"></ace-element>
+         * ```
+         */
+        yText: {
+          type: Object,
+          observer: 'bindYText'
+        }
+      },
+      _disableSearch: function () {
+        if (this.jsonEditorOptions && this.disableSearch)
+          this.jsonEditorOptions.search = false;
+      },
+      _disableHistory: function () {
+        if (this.jsonEditorOptions && this.disableHistory)
+          this.jsonEditorOptions.history = false;
+      },
+      _setMode: function () {
+        if (this.jsonEditor && this.mode.length > 0)
+          this.jsonEditor.setMode(this.mode);
+        else if (this.jsonEditorOptions)
+          this.jsonEditorOptions.mode = this.mode;
+      },
+      _setName: function () {
+        if (this.jsonEditor)
+          this.jsonEditor.setName(this.name);
+        else if (this.jsonEditorOptions)
+          this.jsonEditorOptions.name = this.name;
+      },
+      _setIndentation: function () {
+        if (this.jsonEditorOptions)
+          this.jsonEditorOptions.indentation = this.indentation;
+      },
+      _setEscapeUnicode: function () {
+        if (this.jsonEditorOptions)
+          this.jsonEditorOptions.escapeUnicode = this.escapeUnicode;
+      },
+      _sortObjectKeys: function () {
+        if (this.jsonEditorOptions)
+          this.jsonEditorOptions.sortObjectKeys = this.sortObjectKeys;
+      },
+      _setModes: function () {
+        if (this.jsonEditorOptions)
+          this.jsonEditorOptions.modes = this.modes;
+      },
+      _load: function () {
+        var self = this;
+        var xmlHttp = new XMLHttpRequest();
+        xmlHttp.onreadystatechange = function () {
+          if (xmlHttp.readyState == 4 && xmlHttp.status == 200)
+            self.jsonEditor.set(JSON.parse(xmlHttp.responseText));
+        }
+        xmlHttp.open("GET", this.load, true);
+        xmlHttp.send(null);
+      },
+      /**
+       * Bind this editor to a [Y.Text](https://github.com/y-js/y-text) type
+       */
+      bindYText: function (ytext, old) {
+        if(this.mode !== 'code' && this.mode !== 'text') 
+          return;
+        if (old != null && old.type != null && old.type.unbindAll != null) {
+            old.type.unbindAceAll();
+          }
+          if (ytext != null) {
+            if (ytext.type != null) {
+              ytext = ytext.type;
+            }
+            if (this.jsonEditor.aceEditor != null) {
+              ytext.unbindAceAll();
+              ytext.bindAce(this.jsonEditor.aceEditor);
+            }
+          } else if (this.ace != null && this.jsonEditor.aceEditor.yTextBinding != null) {
+            this.jsonEditor.aceEditor.yTextBinding.unbindAceAll();
+          }
+        
+      }
+    });
+  </script>
+</dom-module>
